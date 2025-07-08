@@ -1,0 +1,102 @@
+.auth-page {
+  display: flex;
+  justify-content: center;
+  padding: 50px 20px;
+  background: #eaf3fb;
+  min-height: 100vh;
+}
+
+.auth-container {
+  display: flex;
+  max-width: 900px;
+  width: 100%;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.auth-welcome {
+  flex: 1;
+  background: #f0f6fd;
+  padding: 40px;
+  text-align: center;
+}
+
+.auth-welcome h1 {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.auth-welcome p {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 20px;
+}
+
+.auth-welcome img {
+  width: 100%;
+  max-width: 250px;
+}
+
+.auth-form {
+  flex: 1;
+  padding: 40px;
+}
+
+.auth-toggle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.auth-toggle button {
+  padding: 10px 20px;
+  margin: 0 5px;
+  border: none;
+  background: #d3e2f5;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: 0.3s;
+}
+
+.auth-toggle .active {
+  background: #4a90e2;
+  color: white;
+}
+
+.auth-form form {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-form input {
+  margin-bottom: 15px;
+  padding: 12px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.forgot-password {
+  text-align: right;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+  color: #4a90e2;
+  cursor: pointer;
+}
+
+.submit-btn {
+  padding: 12px;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.switch-link {
+  color: #4a90e2;
+  cursor: pointer;
+  font-weight: bold;
+}

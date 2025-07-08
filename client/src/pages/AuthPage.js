@@ -1,0 +1,91 @@
+// src/components/AuthPage/AuthPage.js
+import React, { useState } from 'react';
+import './AuthPage.css';
+
+const AuthPage = () => {
+  const [isRegistering, setIsRegistering] = useState(true);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: ''
+  });
+
+  const toggleMode = () => setIsRegistering(!isRegistering);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // TODO: Connect to backend via axios
+    console.log(isRegistering ? 'Registering...' : 'Logging in...', formData);
+  };
+
+  return (
+    <div className="auth-page">
+      <div className="auth-container">
+        {/* Left section */}
+        <div className="auth-welcome">
+          <h1>Welcome!</h1>
+          <p>Sign up to track your job applications and manage your portfolio.</p>
+          <img src="https://static.vecteezy.com/system/resources/previews/017/221/968/original/business-man-waving-hand-hello-gesture-character-illustration-png.png" alt="Welcome" />
+        </div>
+
+        {/* Right section */}
+        <div className="auth-form">
+          <div className="auth-toggle">
+            <button onClick={() => setIsRegistering(false)} className={!isRegistering ? 'active' : ''}>Login</button>
+            <button onClick={() => setIsRegistering(true)} className={isRegistering ? 'active' : ''}>Register</button>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            {isRegistering && (
+              <input
+                type="text"
+                name="name"
+                placeholder="Name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+              />
+            )}
+
+            <input
+              type="email"
+              name="email"
+              placeholder="Email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+
+            <input
+              type="password"
+              name="password"
+              placeholder="Password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+
+            {isRegistering ? (
+              <>
+                <button type="submit" className="submit-btn">Register</button>
+                <p>Already have an account? <span className="switch-link" onClick={toggleMode}>Login</span></p>
+              </>
+            ) : (
+              <>
+                <p className="forgot-password">Forgot password?</p>
+                <button type="submit" className="submit-btn">Login</button>
+                <p>Don't have an account? <span className="switch-link" onClick={toggleMode}>Register</span></p>
+              </>
+            )}
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AuthPage;
