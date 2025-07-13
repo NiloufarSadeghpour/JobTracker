@@ -1,8 +1,12 @@
 // src/components/AuthPage/AuthPage.js
 import React, { useState } from 'react';
 import './AuthPage.css';
+import axios from '../utils/axios';
+import { useNavigate } from 'react-router-dom';
+
 
 const AuthPage = () => {
+  const navigate = useNavigate();
   const [isRegistering, setIsRegistering] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
@@ -16,11 +20,27 @@ const AuthPage = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // TODO: Connect to backend via axios
-    console.log(isRegistering ? 'Registering...' : 'Logging in...', formData);
-  };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  const endpoint = isRegistering ? '/auth/register' : '/auth/login';
+
+  try {
+    const res = await axios.post(endpoint, formData);
+
+    if (!isRegistering) {
+      // Save token to localStorage
+      localStorage.setItem('token', res.data.token);
+      // Navigate to dashboard
+      navigate('/dashboard');
+    } else {
+      alert('Registration successful! Please login.');
+      setIsRegistering(false);
+    }
+  } catch (err) {
+    alert(err.response?.data?.message || 'Authentication failed.');
+    console.error(err);
+  }
+};
 
   return (
     <div className="auth-page">
