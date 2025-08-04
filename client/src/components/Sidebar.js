@@ -15,7 +15,7 @@ export default function Sidebar() {
         <Link to="/dashboard" style={linkStyle}>Dashboard</Link>
         <Link to="/add-job" style={linkStyle}>Add Job</Link>
         <Link to="/autofill" style={linkStyle}>Autofill Form</Link>
-        <div style={linkStyle} onClick={logout}>Logout</div>
+<button onClick={logout} style={linkStyle}>Logout</button>
       </nav>
     </aside>
   );

@@ -3,7 +3,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const register = (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, password } = req.body;
+  const email = req.body.email.trim().toLowerCase();
+
 
   // Validation
   if (!name || !email || !password)
@@ -16,6 +18,11 @@ const register = (req, res) => {
 
     if (results.length > 0)
       return res.status(409).json({ message: 'Email already in use' });
+
+    const strongPass = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+if (!strongPass.test(password))
+  return res.status(400).json({ message: 'Weak password. Use at least 8 characters, with uppercase, lowercase, number, and symbol.' });
+
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const insertUser = 'INSERT INTO users (username, email, password) VALUES (?, ?, ?)';

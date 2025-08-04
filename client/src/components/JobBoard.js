@@ -1,14 +1,42 @@
 import { useEffect, useState } from 'react';
 import axios from '../utils/axios';
+import { Link } from 'react-router-dom';
+
 
 export default function JobBoard() {
   const [jobs, setJobs] = useState([]);
 
-  useEffect(() => {
-    axios.get('/jobs')
-      .then(res => setJobs(res.data))
-      .catch(err => console.error('Job fetch failed', err));
-  }, []);
+useEffect(() => {
+  const token = localStorage.getItem('token');
+
+  axios.get('/jobs', {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+    .then(res => setJobs(res.data))
+    .catch(err => console.error('Job fetch failed', err));
+}, []);
+
+const handleDelete = async (jobId) => {
+  const confirmed = window.confirm('Are you sure you want to delete this job?');
+  if (!confirmed) return;
+
+  try {
+    const token = localStorage.getItem('token');
+    await axios.delete(`/jobs/${jobId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    // Refresh job list after deletion
+    setJobs(prev => prev.filter(job => job.id !== jobId));
+  } catch (err) {
+    console.error('Delete failed', err);
+    alert('Failed to delete job');
+  }
+};
+
 
   const handleHeart = async (value) => {
     try {
@@ -33,6 +61,37 @@ export default function JobBoard() {
             >
               ❤️
             </button>
+              {/* 🧱 Edit button */}
+  <Link
+    to={`/edit-job/${job.id}`}
+    style={{
+      float: 'right',
+      fontSize: '1rem',
+      color: '#4a90e2',
+      textDecoration: 'underline',
+      marginRight: '10px',
+      cursor: 'pointer'
+    }}
+  >
+    ✏️ Edit
+  </Link>
+            <button
+  onClick={() => handleDelete(job.id)}
+  style={{
+    float: 'right',
+    fontSize: '1rem',
+    color: 'red',
+    marginLeft: '10px',
+    border: 'none',
+    background: 'none',
+    cursor: 'pointer'
+  }}
+  title="Delete job"
+>
+  🗑️
+</button>
+
+
             <h3>{job.position} @ {job.company}</h3>
             <p>Status: <strong>{job.status}</strong></p>
             <p>Date Applied: {job.date_applied?.slice(0, 10)}</p>

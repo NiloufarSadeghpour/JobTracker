@@ -27,6 +27,10 @@ const handleSubmit = async (e) => {
   try {
     const res = await axios.post(endpoint, formData);
 
+    if (isRegistering && formData.password.length < 8) {
+  alert('Password must be at least 8 characters.');
+  return;
+}
     if (!isRegistering) {
       // Save token to localStorage
       localStorage.setItem('token', res.data.token);
@@ -107,5 +111,11 @@ const handleSubmit = async (e) => {
     </div>
   );
 };
+
+/*const logout = () => {
+  localStorage.removeItem('token');
+  navigate('/');
+};*/
+
 
 export default AuthPage;

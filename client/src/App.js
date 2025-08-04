@@ -7,7 +7,9 @@ import Footer from './components/Footer';
 import AddJobPage from './pages/AddJobPage';
 import AddProjectPage from './pages/AddProjectPage';
 import AutofillForm from './pages/AutofillForm';
-
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import EditJobPage from './pages/EditJobPage';
 
 const isLoggedIn = !!localStorage.getItem('token');
 
@@ -18,9 +20,12 @@ function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to ="/dashboard" />} />
         <Route path="/add-job" element={isLoggedIn ? <AddJobPage /> : <Navigate to="/dashboard" />} />
+        <Route path="/edit-job/:id" element={isLoggedIn ? <EditJobPage /> : <Navigate to="dashboard" />} />
         <Route path="/add-project" element={isLoggedIn ? <AddProjectPage /> : <Navigate to="/dashboard" />} />
         <Route path="/autofill" element={isLoggedIn ? <AutofillForm /> : <Navigate to="/dashboard" />} />
       </Routes>
