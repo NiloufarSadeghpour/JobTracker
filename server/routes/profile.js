@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const verifyToken = require('../middleware/verifyToken');
+const { verifyAccess } = require('../middleware/authMiddleware');  // ✅ use the correct middleware
 const db = require('../config/db');
 
-router.get('/', verifyToken, (req, res) => {
+router.get('/', verifyAccess, (req, res) => {
   const sql = 'SELECT id, username AS name, email, resume_path FROM users WHERE id = ?';
   db.query(sql, [req.user.id], (err, results) => {
     if (err) return res.status(500).json({ message: 'DB error', err });

@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const verifyToken = require('../middleware/verifyToken');
+const { verifyAccess } = require('../middleware/authMiddleware');  // ✅ use the correct middleware
 
 // GET all projects for a user
-router.get('/', verifyToken, (req, res) => {
+router.get('/', verifyAccess, (req, res) => {
   const sql = 'SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC';
   db.query(sql, [req.user.id], (err, results) => {
     if (err) return res.status(500).json({ message: 'DB error', err });
@@ -13,7 +13,7 @@ router.get('/', verifyToken, (req, res) => {
 });
 
 // POST a new project
-router.post('/', verifyToken, (req, res) => {
+router.post('/', verifyAccess, (req, res) => {
   const { title, description, link, tech_stack } = req.body;
   const sql = 'INSERT INTO projects (user_id, title, description, link, tech_stack) VALUES (?, ?, ?, ?, ?)';
   db.query(sql, [req.user.id, title, description, link, tech_stack], (err, result) => {

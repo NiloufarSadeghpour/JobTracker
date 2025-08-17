@@ -1,21 +1,41 @@
-.home-container {
+html, body, #root {
+  height: 100%;
+}
+body {
+  margin: 0;
+}
+* {
+  box-sizing: border-box;
+}
+
+  .home-container {
   background: #f5f9ff;
+  min-height: 100vh;
+  width: 100%;
+  padding: 0; /* let inner sections add their own padding */
+  font-family: 'Segoe UI', sans-serif;
+}
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 2rem;
 }
+
 
 .hero-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
   background: white;
-  padding: 2rem;
+  padding: 3rem 4rem;
   border-radius: 10px;
   margin-bottom: 2rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  min-height: 350px;
 }
 
 .hero-content {
-  max-width: 60%;
+  max-width: 70%;
 }
 
 .hero-content h1 {
@@ -48,7 +68,8 @@
 }
 
 .hero-image {
-  width: 150px;
+  width: 350px;
+  height: auto;
 }
 
 .features-section {
@@ -107,13 +128,6 @@
 .community-section {
   margin-top: 3rem;
   text-align: center;
-}
-
-.home-container {
-  max-width: 1000px;
-  margin: 2rem auto;
-  padding: 1rem;
-  font-family: 'Segoe UI', sans-serif;
 }
 
 /* Shared preview box */

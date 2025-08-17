@@ -1,11 +1,11 @@
+// src/components/Sidebar.js
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function Sidebar() {
   const navigate = useNavigate();
-
   const logout = () => {
     localStorage.removeItem('token');
-    navigate('/');
+    navigate('/auth'); // better: send to auth
   };
 
   return (
@@ -13,9 +13,11 @@ export default function Sidebar() {
       <h2 style={{ marginBottom: '20px' }}>JobTracker</h2>
       <nav>
         <Link to="/dashboard" style={linkStyle}>Dashboard</Link>
+        <Link to="/jobs" style={linkStyle}>All Jobs</Link> {/* <-- add this */}
         <Link to="/add-job" style={linkStyle}>Add Job</Link>
         <Link to="/autofill" style={linkStyle}>Autofill Form</Link>
-<button onClick={logout} style={linkStyle}>Logout</button>
+        <Link to="/portfolio-builder" style={linkStyle}>Portfolio Builder</Link>
+        <button onClick={logout} style={linkStyle}>Logout</button>
       </nav>
     </aside>
   );

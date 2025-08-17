@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import './Home.css';
 import { FaBriefcase, FaFileUpload, FaFolderOpen, FaStar, FaEdit, FaTrash } from 'react-icons/fa';
+import jobIcon from '../images/job-icon.png';
 
 const Home = () => {
   const [activeTab, setActiveTab] = useState('Job Tracker');
@@ -163,7 +164,7 @@ if (activeTab === 'Favorites') {
             <a href="/jobs" className="hero-btn secondary">Explore Jobs</a>
           </div>
         </div>
-        <img src="/job-icon.png" alt="Job Icon" className="hero-image" />
+<img src={jobIcon} alt="Job Icon" className="hero-image" />
       </section>
 
       <section className="features-section">
