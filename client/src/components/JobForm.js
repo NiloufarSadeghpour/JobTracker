@@ -1,13 +1,15 @@
+// src/components/JobForm.js
 import { useState, useEffect } from 'react';
-import './JobForm.css';
 
-export default function JobForm({ mode, onSubmit, initialData = {} }) {
+const STATUSES = ['Wishlist', 'Applied', 'Interview', 'Offer', 'Rejected'];
+
+export default function JobForm({ mode = 'create', onSubmit, initialData = {} }) {
   const [form, setForm] = useState({
     title: '',
     company: '',
     location: '',
     job_link: '',
-    status: 'Wishlist', 
+    status: 'Wishlist',
     deadline: '',
     tags: '',
     notes: ''
@@ -31,14 +33,12 @@ export default function JobForm({ mode, onSubmit, initialData = {} }) {
     if (!form.company.trim()) e.company = 'Company is required';
 
     if (form.job_link) {
-      try { new URL(form.job_link); } catch { e.job_link = 'Enter a valid URL'; }
+      try { new URL(form.job_link); } catch { e.job_link = 'Enter a valid URL (e.g. https://...)'; }
     }
 
-    // Optional: prevent past deadlines
     if (form.deadline) {
       const d = new Date(form.deadline);
       if (Number.isNaN(d.getTime())) e.deadline = 'Invalid date';
-      // if (d < new Date().setHours(0,0,0,0)) e.deadline = 'Deadline cannot be in the past';
     }
 
     setErrors(e);
@@ -49,7 +49,6 @@ export default function JobForm({ mode, onSubmit, initialData = {} }) {
     e.preventDefault();
     if (!validate()) return;
 
-    // normalize optional fields: trim + empty -> null
     const clean = (v) => {
       if (v === null || v === undefined) return null;
       const t = String(v).trim();
@@ -61,7 +60,7 @@ export default function JobForm({ mode, onSubmit, initialData = {} }) {
       company: form.company.trim(),
       location: clean(form.location),
       job_link: clean(form.job_link),
-      status: form.status,          // assume enum handled by backend
+      status: form.status,
       deadline: clean(form.deadline),
       tags: clean(form.tags),
       notes: clean(form.notes),
@@ -71,79 +70,127 @@ export default function JobForm({ mode, onSubmit, initialData = {} }) {
   };
 
   return (
-    <form className="job-form" onSubmit={handleSubmit} noValidate>
-      <input
-        name="title"
-        placeholder="Title"
-        value={form.title}
-        onChange={handleChange}
-        required
-        aria-invalid={!!errors.title}
-      />
-      {errors.title && <small className="field-error">{errors.title}</small>}
+    <form onSubmit={handleSubmit} noValidate className="grid gap-4">
+      {/* Title + Company */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm font-semibold text-blue-900">Title *</label>
+          <input
+            name="title"
+            placeholder="e.g. Frontend Developer"
+            value={form.title}
+            onChange={handleChange}
+            aria-invalid={!!errors.title}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 ${errors.title ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-white'}`}
+            required
+          />
+          {errors.title && <small className="text-red-700">{errors.title}</small>}
+        </div>
 
-      <input
-        name="company"
-        placeholder="Company"
-        value={form.company}
-        onChange={handleChange}
-        required
-        aria-invalid={!!errors.company}
-      />
-      {errors.company && <small className="field-error">{errors.company}</small>}
+        <div>
+          <label className="text-sm font-semibold text-blue-900">Company *</label>
+          <input
+            name="company"
+            placeholder="e.g. OpenAI"
+            value={form.company}
+            onChange={handleChange}
+            aria-invalid={!!errors.company}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 ${errors.company ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-white'}`}
+            required
+          />
+          {errors.company && <small className="text-red-700">{errors.company}</small>}
+        </div>
+      </div>
 
-      <input
-        name="location"
-        placeholder="Location"
-        value={form.location}
-        onChange={handleChange}
-      />
+      {/* Location + Link */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm font-semibold text-blue-900">Location</label>
+          <input
+            name="location"
+            placeholder="Remote / London / Berlin..."
+            value={form.location}
+            onChange={handleChange}
+            className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-3 py-2"
+          />
+        </div>
 
-      <input
-        type="url"
-        name="job_link"
-        placeholder="Job Link"
-        value={form.job_link}
-        onChange={handleChange}
-        aria-invalid={!!errors.job_link}
-      />
-      {errors.job_link && <small className="field-error">{errors.job_link}</small>}
+        <div>
+          <label className="text-sm font-semibold text-blue-900">Job Link</label>
+          <input
+            type="url"
+            name="job_link"
+            placeholder="https://company.com/jobs/123"
+            value={form.job_link}
+            onChange={handleChange}
+            aria-invalid={!!errors.job_link}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 ${errors.job_link ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-white'}`}
+          />
+          {errors.job_link && <small className="text-red-700">{errors.job_link}</small>}
+        </div>
+      </div>
 
-      <select name="status" value={form.status} onChange={handleChange}>
-        <option>Wishlist</option>
-        <option>Applied</option>
-        <option>Interview</option>
-        <option>Offer</option>
-        <option>Rejected</option>
-      </select>
+      {/* Status + Deadline */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm font-semibold text-blue-900">Status</label>
+          <select
+            name="status"
+            value={form.status}
+            onChange={handleChange}
+            className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-3 py-2"
+          >
+            {STATUSES.map(s => <option key={s}>{s}</option>)}
+          </select>
+        </div>
 
-      <input
-        type="date"
-        name="deadline"
-        value={form.deadline || ''}
-        onChange={handleChange}
-        aria-invalid={!!errors.deadline}
-      />
-      {errors.deadline && <small className="field-error">{errors.deadline}</small>}
+        <div>
+          <label className="text-sm font-semibold text-blue-900">Deadline</label>
+          <input
+            type="date"
+            name="deadline"
+            value={form.deadline || ''}
+            onChange={handleChange}
+            aria-invalid={!!errors.deadline}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 ${errors.deadline ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-white'}`}
+          />
+          {errors.deadline && <small className="text-red-700">{errors.deadline}</small>}
+        </div>
+      </div>
 
-      <input
-        name="tags"
-        placeholder="Tags (comma separated)"
-        value={form.tags}
-        onChange={handleChange}
-      />
+      {/* Tags */}
+      <div>
+        <label className="text-sm font-semibold text-blue-900">Tags</label>
+        <input
+          name="tags"
+          placeholder="comma separated (e.g. remote, frontend)"
+          value={form.tags}
+          onChange={handleChange}
+          className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-3 py-2"
+        />
+      </div>
 
-      <textarea
-        name="notes"
-        placeholder="Notes"
-        value={form.notes}
-        onChange={handleChange}
-        rows={4}
-      />
+      {/* Notes */}
+      <div>
+        <label className="text-sm font-semibold text-blue-900">Notes</label>
+        <textarea
+          name="notes"
+          placeholder="Add any details or reminders…"
+          value={form.notes}
+          onChange={handleChange}
+          rows={4}
+          className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-3 py-2 resize-y"
+        />
+      </div>
 
-      <button className="job-submit-btn" type="submit">
-        {mode === 'edit' ? 'Update Job' : 'Add Job'}
-      </button>
+      <div className="pt-1">
+        <button
+          type="submit"
+          className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 transition"
+        >
+          {mode === 'edit' ? 'Update Job' : 'Add Job'}
+        </button>
+      </div>
     </form>
   );
 }

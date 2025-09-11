@@ -14,13 +14,13 @@ const isProd = process.env.NODE_ENV === 'production';
 
 // ---- HELPERS ----
 function signAccessToken(user) {
-  // Keep payload minimal: subject (user id) + email for convenience
   return jwt.sign(
-    { sub: user.id, email: user.email },
+    { sub: user.id, email: user.email, role: user.role },   // ← include role
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TTL }
   );
 }
+
 
 function signRefreshToken(user, remember) {
   // Encode a 'typ' claim and the 'remember' flag so we can preserve persistence on rotation
@@ -91,12 +91,17 @@ exports.login = async (req, res) => {
     }
 
     const emailNorm = email.trim().toLowerCase();
-    const rows = await query('SELECT * FROM users WHERE email = ?', [emailNorm]);
+    const rows = await query('SELECT id, username, email, password, role, is_active FROM users WHERE email = ?', [emailNorm]);
     if (rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     const user = rows[0];
+
+    if (!user.is_active) {
+      return res.status(403).json({ message: 'Account is deactivated' });
+    }
+
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -108,12 +113,13 @@ exports.login = async (req, res) => {
 
     return res.json({
       accessToken,
-      user: { id: user.id, name: user.username, email: user.email },
+      user: { id: user.id, name: user.username, email: user.email, role: user.role },
     });
   } catch (err) {
     return res.status(500).json({ message: 'DB error', err });
   }
 };
+
 
 exports.refresh = async (req, res) => {
   try {
@@ -122,37 +128,36 @@ exports.refresh = async (req, res) => {
       return res.status(401).json({ message: 'No refresh token' });
     }
 
-    // Verify refresh token
     const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-
-    // Hard check: must be a refresh token
     if (payload.typ !== 'refresh') {
       return res.status(401).json({ message: 'Invalid refresh token' });
     }
 
-    const rows = await query('SELECT id, username, email FROM users WHERE id = ?', [payload.sub]);
+    const rows = await query('SELECT id, username, email, role, is_active FROM users WHERE id = ?', [payload.sub]);
     if (rows.length === 0) {
       return res.status(401).json({ message: 'User not found' });
     }
 
     const user = rows[0];
+    if (!user.is_active) {
+      clearRefreshCookie(res);
+      return res.status(403).json({ message: 'Account is deactivated' });
+    }
 
-    // Rotate refresh token, preserving remember flag
     const newRefresh = signRefreshToken(user, payload.remember);
     setRefreshCookie(res, newRefresh, !!payload.remember);
 
-    // Issue new access token
     const accessToken = signAccessToken(user);
 
     return res.json({
       accessToken,
-      user: { id: user.id, name: user.username, email: user.email },
+      user: { id: user.id, name: user.username, email: user.email, role: user.role },
     });
   } catch (err) {
-    // Token verification errors end up here too (expired/invalid)
     return res.status(401).json({ message: 'Invalid refresh token' });
   }
 };
+
 
 exports.logout = (req, res) => {
   clearRefreshCookie(res);
@@ -160,15 +165,78 @@ exports.logout = (req, res) => {
 };
 
 exports.me = async (req, res) => {
-  // Requires verifyAccess middleware to populate req.user
   try {
-    const rows = await query('SELECT id, username, email FROM users WHERE id = ?', [req.user.sub]);
+    const rows = await query('SELECT id, username, email, role FROM users WHERE id = ?', [req.user.sub]);
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Not found' });
     }
     const u = rows[0];
-    return res.json({ id: u.id, name: u.username, email: u.email });
+    return res.json({ id: u.id, name: u.username, email: u.email, role: u.role });
   } catch (err) {
     return res.status(500).json({ message: 'DB error', err });
   }
 };
+
+// POST /api/auth/register-admin
+// body: { token, username, password }
+exports.registerAdminFromInvite = async (req, res) => {
+  try {
+    const { token, username, password } = req.body || {};
+    if (!token || !username || !password) {
+      return res.status(400).json({ message: 'token, username, and password are required' });
+    }
+
+    // Strong password check (reuse the one from register)
+    const strongPass = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+    if (!strongPass.test(password)) {
+      return res.status(400).json({
+        message: 'Weak password. Use at least 8 characters, with uppercase, lowercase, number, and symbol.',
+      });
+    }
+
+    // 1) Validate invite
+    const invites = await query(
+      `SELECT * FROM admin_invites
+       WHERE token = ? AND used_at IS NULL AND expires_at > NOW()`,
+      [token]
+    );
+    const invite = invites[0];
+    if (!invite) {
+      return res.status(400).json({ message: 'Invalid or expired invite token' });
+    }
+
+    // 2) Ensure email not taken
+    const existing = await query(`SELECT id FROM users WHERE email = ? LIMIT 1`, [invite.email]);
+    if (existing.length > 0) {
+      return res.status(409).json({ message: 'Email already registered' });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+
+    // 3) Transaction: create admin user + mark invite used
+    await query('START TRANSACTION');
+
+    const result = await query(
+      `INSERT INTO users (username, email, password, role, is_active)
+       VALUES (?, ?, ?, 'admin', 1)`,
+      [username, invite.email, hash]
+    );
+
+    await query(`UPDATE admin_invites SET used_at = NOW() WHERE id = ?`, [invite.id]);
+
+    await query('COMMIT');
+
+    const user = { id: result.insertId, email: invite.email, role: 'admin' };
+    const accessToken = signAccessToken(user);
+
+    return res.status(201).json({
+      ok: true,
+      user: { id: user.id, name: username, email: user.email, role: user.role },
+      accessToken
+    });
+  } catch (err) {
+    try { await query('ROLLBACK'); } catch (_) {}
+    return res.status(500).json({ message: 'Failed to register admin' });
+  }
+};
+

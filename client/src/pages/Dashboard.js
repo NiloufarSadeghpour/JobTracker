@@ -1,39 +1,94 @@
 // src/pages/Dashboard.js
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import JobBoard from '../components/JobBoard';
 import ProjectBoard from '../components/ProjectBoard';
 import ResumeUpload from '../components/ResumeUpload';
 import FavoritesBoard from '../components/FavoritesBoard';
+import PortfolioBoard from '../components/PortfolioBoard';
+import { tokenStore } from '../utils/axios';
+import AnalyticsSummary from "../components/AnalyticsSummary"
+import AICoverLetter from "../components/AICoverLetter";
 
 export default function DashboardPage() {
-  return (
-    <div style={{ display: 'flex', height: '100vh' }}>
-      <Sidebar />
-      <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
-        <h1>Dashboard</h1>
+  useEffect(() => {
+    // Prime interceptor token from localStorage on hard refresh
+    const t = localStorage.getItem('token');
+    if (t) tokenStore.set(t);
+  }, []);
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2>Your Job Applications</h2>
+  return (
+    <div className="flex min-h-[calc(100vh-120px)] bg-[#f5f9ff]">
+      <Sidebar />
+
+      <main className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-blue-900">Dashboard</h1>
           <Link
             to="/jobs"
-            style={{
-              background: '#4a90e2', color: '#fff', padding: '8px 12px',
-              borderRadius: 6, textDecoration: 'none', fontWeight: 600
-            }}
+            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
           >
             View full list →
           </Link>
         </div>
 
-        <JobBoard />
+        {/* (Optional) quick stats */}
+        <AnalyticsSummary />
 
-        <h2 style={{ marginTop: '2rem' }}>Your Portfolio Projects</h2>
-        <ProjectBoard />
-        <h2 style={{ marginTop: '2rem' }}>Resume</h2>
-        <ResumeUpload />
-        <h2 style={{ marginTop: '2rem' }}>Favorites</h2>
-        <FavoritesBoard />
+        {/* Jobs */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-blue-900">Your Job Applications</h2>
+            <Link
+              to="/add-job"
+              className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-50 transition"
+            >
+              + Add Job
+            </Link>
+          </div>
+          <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+            <JobBoard />
+          </div>
+        </section>
+
+        {/* Portfolios */}
+        <section className="space-y-2">
+          <h2 className="text-lg font-bold text-blue-900">Your Portfolios</h2>
+          <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+            <PortfolioBoard />
+          </div>
+        </section>
+
+        {/* Projects */}
+        <section className="space-y-2">
+          <h2 className="text-lg font-bold text-blue-900">Projects</h2>
+          <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+            <ProjectBoard />
+          </div>
+        </section>
+
+        {/* Resume */}
+        <section className="space-y-2">
+          <h2 className="text-lg font-bold text-blue-900">Resume</h2>
+          <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+            <ResumeUpload />
+          </div>
+        </section>
+
+        <section className="space-y-2">
+  <h2 className="text-lg font-bold text-blue-900">AI Tools</h2>
+  <AICoverLetter />
+</section>
+
+        {/* Favorites */}
+        <section className="space-y-2">
+          <h2 className="text-lg font-bold text-blue-900">Favorites</h2>
+          <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+            <FavoritesBoard />
+          </div>
+        </section>
       </main>
     </div>
   );

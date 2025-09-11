@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const { verifyAccess } = require('../middleware/authMiddleware');  // ✅ use the correct middleware
+const { verifyAccess } = require('../middleware/authMiddleware'); 
 
 const toNull = (v) => {
   if (v === undefined || v === null) return null;
@@ -73,7 +73,7 @@ router.get('/', verifyAccess, (req, res) => {
 // GET single job
 router.get('/:id', verifyAccess, (req, res) => {
   const jobId = req.params.id;
-  const userId = req.user.sub;  // ✅ use sub
+  const userId = req.user.sub;  
   const sql = 'SELECT * FROM jobs WHERE id = ? AND user_id = ?';
   db.query(sql, [jobId, userId], (err, results) => {
     if (err) return res.status(500).json({ message: 'Database error', err });
@@ -99,7 +99,7 @@ router.post('/', verifyAccess, (req, res) => {
   `;
 
   const payload = [
-    req.user.sub,   // ✅ use sub
+    req.user.sub,   
     toNull(title),
     toNull(company),
     toNull(location),
@@ -114,7 +114,7 @@ router.post('/', verifyAccess, (req, res) => {
     if (err) return res.status(500).json({ message: 'Insert error', err });
     res.status(201).json({
       id: result.insertId,
-      user_id: req.user.sub,   // ✅ use sub
+      user_id: req.user.sub,   
       title: payload[1],
       company: payload[2],
       location: payload[3],
@@ -125,6 +125,25 @@ router.post('/', verifyAccess, (req, res) => {
       notes: payload[8]
     });
   });
+  async function maybeNotify3d(userId, job) {
+  // Same logic as above; rely on UNIQUE (user_id, job_id, kind)
+  const isThreeDaysOut = `
+    SELECT DATE(?) = DATE_ADD(CURDATE(), INTERVAL 3 DAY) AS matchDate
+  `;
+  // Or just compute in JS comparing dates (date-only)
+  const d = new Date(job.deadline);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(today); target.setDate(today.getDate() + 3);
+  const match = d.toDateString() === target.toDateString();
+
+  if (!match) return;
+
+  await query(`
+    INSERT IGNORE INTO notifications (user_id, job_id, kind, title, body, link, is_read, created_at)
+    VALUES (?, ?, 'deadline_3', 'Deadline in 3 days', ?, NULL, 0, NOW())
+  `, [userId, job.id, `“${job.title}” at ${job.company} is due on ${d.toLocaleDateString()}`]);
+}
+
 });
 
 // UPDATE job
@@ -135,19 +154,19 @@ router.put('/:id', verifyAccess, (req, res) => {
     title, company, location, job_link, status, deadline, tags, notes
   } = req.body;
 
-  // ✅ same validation as create
+  // same validation as create
   if (!title?.trim() || !company?.trim()) {
     return res.status(400).json({ message: 'Title and company are required.' });
   }
 
-  // ✅ normalize like CREATE does
+  // normalize like CREATE does
   const payload = [
     title.trim(),
     company.trim(),
     toNull(location),
     toNull(job_link),
-    status || 'Wishlist',   // default if omitted
-    toNull(deadline),       // convert '' -> null
+    status || 'Wishlist',   
+    toNull(deadline),       
     toNull(tags),
     toNull(notes),
     jobId,
@@ -165,16 +184,35 @@ router.put('/:id', verifyAccess, (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Job not found or unauthorized' });
     }
-    // (optional) return the updated row to make client UX nicer
+    //return the updated row to make client UX nicer
     res.json({ message: 'Job updated successfully' });
   });
+  async function maybeNotify3d(userId, job) {
+  // Same logic as above; rely on UNIQUE (user_id, job_id, kind)
+  const isThreeDaysOut = `
+    SELECT DATE(?) = DATE_ADD(CURDATE(), INTERVAL 3 DAY) AS matchDate
+  `;
+  // Or just compute in JS comparing dates (date-only)
+  const d = new Date(job.deadline);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(today); target.setDate(today.getDate() + 3);
+  const match = d.toDateString() === target.toDateString();
+
+  if (!match) return;
+
+  await query(`
+    INSERT IGNORE INTO notifications (user_id, job_id, kind, title, body, link, is_read, created_at)
+    VALUES (?, ?, 'deadline_3', 'Deadline in 3 days', ?, NULL, 0, NOW())
+  `, [userId, job.id, `“${job.title}” at ${job.company} is due on ${d.toLocaleDateString()}`]);
+}
+
 });
 
 
 // DELETE job
 router.delete('/:id', verifyAccess, (req, res) => {
   const jobId = req.params.id;
-  const userId = req.user.sub;  // ✅ use sub
+  const userId = req.user.sub; 
   const sql = 'DELETE FROM jobs WHERE id = ? AND user_id = ?';
   db.query(sql, [jobId, userId], (err, result) => {
     if (err) return res.status(500).json({ message: 'Delete error', err });

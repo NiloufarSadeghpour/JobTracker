@@ -1,15 +1,31 @@
+// routes/portfolios.js
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');          // mysql2/promise pool/conn
-const { verifyAccess } = require('../middleware/authMiddleware');  // ✅ use the correct middleware
+const db = require('../config/db'); // mysql2 callback connection
+const { verifyAccess } = require('../middleware/authMiddleware');
 
-// ---------- helpers ----------
+/* -------------------------------- Helpers -------------------------------- */
+
+function exec(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.execute(sql, params, (err, rows, fields) => {
+      if (err) return reject(err);
+      resolve([rows, fields]);
+    });
+  });
+}
+
 const asJSON = (obj) => {
   try { return JSON.stringify(obj ?? {}); } catch { return '{}'; }
 };
 
+// normalize user id from either id or sub (JWT payload variants)
+function getUid(req) {
+  return req?.user?.id ?? req?.user?.sub ?? null;
+}
+
 async function ensurePortfolioOwner(portfolioId, userId) {
-  const [rows] = await db.execute(
+  const [rows] = await exec(
     'SELECT id FROM portfolios WHERE id = ? AND user_id = ?',
     [portfolioId, userId]
   );
@@ -17,40 +33,52 @@ async function ensurePortfolioOwner(portfolioId, userId) {
 }
 
 async function ensureItemOwner(itemId, userId) {
-  const [rows] = await db.execute(
+  const [rows] = await exec(
     `SELECT pi.id
-     FROM portfolio_items pi
-     JOIN portfolios p ON p.id = pi.portfolio_id
-     WHERE pi.id = ? AND p.user_id = ?`,
+       FROM portfolio_items pi
+       JOIN portfolios p ON p.id = pi.portfolio_id
+      WHERE pi.id = ? AND p.user_id = ?`,
     [itemId, userId]
   );
   return rows.length > 0;
 }
 
-// ========== PORTFOLIOS CRUD ==========
+/* ------------------------------ PORTFOLIOS ------------------------------- */
 
 // Create portfolio
 // body: { title, subtitle, bio, slug, is_public }
 router.post('/', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
-    const { title, subtitle = null, bio = null, slug, is_public = 0 } = req.body;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
 
-    if (!title || !slug) {
-      return res.status(400).json({ message: 'title and slug are required' });
-    }
+    let { title, subtitle = null, bio = null, slug, is_public = 0 } = req.body;
+    if (!title || !slug) return res.status(400).json({ message: 'title and slug are required' });
+
+    // clip to schema lengths
+    title = String(title).trim().slice(0, 120);
+    slug  = String(slug).trim().slice(0, 120);
+    if (subtitle !== null && subtitle !== undefined) subtitle = String(subtitle).slice(0, 200);
+    if (typeof bio === 'string') bio = bio.trim();
+
+    // FK precheck
+    const [[u]] = await exec('SELECT id FROM users WHERE id = ?', [uid]);
+    if (!u) return res.status(401).json({ message: 'User not found' });
 
     const sql = `
       INSERT INTO portfolios (user_id, title, subtitle, bio, slug, is_public)
       VALUES (?, ?, ?, ?, ?, ?)
     `;
-    const [result] = await db.execute(sql, [uid, title, subtitle, bio, slug, Number( is_public ? 1 : 0 )]);
+    const [result] = await exec(sql, [
+      uid, title, subtitle, bio, slug, Number(is_public ? 1 : 0),
+    ]);
+
     res.status(201).json({ id: result.insertId });
   } catch (err) {
-    if (err && err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ message: 'Slug already in use for this user' });
-    }
-    console.error(err);
+    console.error('CREATE PORTFOLIO ERROR:', err);
+    if (err?.code === 'ER_DUP_ENTRY')      return res.status(409).json({ message: 'Slug already in use for this user' });
+    if (err?.code === 'ER_DATA_TOO_LONG')  return res.status(422).json({ message: 'One or more fields exceed maximum length' });
+    if (err?.code === 'ER_NO_REFERENCED_ROW_2') return res.status(401).json({ message: 'User not found or unauthorized' });
     res.status(500).json({ message: 'Create portfolio failed' });
   }
 });
@@ -58,98 +86,136 @@ router.post('/', verifyAccess, async (req, res) => {
 // Get all portfolios for current user
 router.get('/me', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
-    const [rows] = await db.execute(
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
+    const [rows] = await exec(
       `SELECT id, title, subtitle, bio, slug, is_public, created_at, updated_at
-       FROM portfolios WHERE user_id = ? ORDER BY created_at DESC`,
+         FROM portfolios
+        WHERE user_id = ?
+     ORDER BY created_at DESC`,
       [uid]
     );
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error('FETCH PORTFOLIOS ERROR:', err);
     res.status(500).json({ message: 'Fetch portfolios failed' });
   }
 });
-
-// Public fetch by slug
-router.get('/p/:slug', async (req, res) => {
+router.get('/:id', verifyAccess, async (req, res) => {
   try {
-    const { slug } = req.params;
-    const [rows] = await db.execute(
-      `SELECT id, user_id, title, subtitle, bio, slug, is_public, created_at, updated_at
-       FROM portfolios WHERE slug = ? AND is_public = 1`,
-      [slug]
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
+    const { id } = req.params;
+    const owns = await ensurePortfolioOwner(id, uid);
+    if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
+
+    const [rows] = await exec(
+      `SELECT p.id, p.title, p.subtitle, p.bio, p.slug, p.is_public, p.created_at, p.updated_at
+         FROM portfolios p
+        WHERE p.id = ?`,
+      [id]
     );
     if (!rows.length) return res.status(404).json({ message: 'Portfolio not found' });
-    res.json(rows[0]);
+
+    const [assets] = await exec(
+      `SELECT id, asset_type, url, label
+         FROM portfolio_assets
+        WHERE portfolio_id = ?
+     ORDER BY id DESC`,
+      [id]
+    );
+
+    res.json({ ...rows[0], assets });
   } catch (err) {
-    console.error(err);
+    console.error('READ PORTFOLIO BY ID ERROR:', err);
     res.status(500).json({ message: 'Fetch portfolio failed' });
   }
 });
 
-// Update portfolio
-// body: { title?, subtitle?, bio?, slug?, is_public? }
-router.put('/:id', verifyAccess, async (req, res) => {
+
+// Public full fetch by slug (no auth)
+router.get('/p/:slug/full', async (req, res) => {
   try {
-    const uid = req.user.id;
-    const { id } = req.params;
-    const owns = await ensurePortfolioOwner(id, uid);
-    if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
+    const { slug } = req.params;
 
-    const fields = ['title','subtitle','bio','slug','is_public'];
-    const sets = [];
-    const params = [];
-    for (const f of fields) {
-      if (req.body[f] !== undefined) {
-        if (f === 'is_public') {
-          sets.push(`${f} = ?`);
-          params.push(Number(req.body[f] ? 1 : 0));
-        } else {
-          sets.push(`${f} = ?`);
-          params.push(req.body[f]);
-        }
-      }
-    }
-    if (!sets.length) return res.json({ message: 'Nothing to update' });
+    const [pRows] = await exec(
+      `SELECT id, user_id, title, subtitle, bio, slug, is_public, created_at, updated_at
+         FROM portfolios
+        WHERE slug = ? AND is_public = 1`,
+      [slug]
+    );
+    if (!pRows.length) return res.status(404).json({ message: 'Portfolio not found' });
+    const p = pRows[0];
 
-    const sql = `UPDATE portfolios SET ${sets.join(', ')} WHERE id = ?`;
-    params.push(id);
+    const [assets] = await exec(
+      `SELECT id, asset_type, url, label
+         FROM portfolio_assets
+        WHERE portfolio_id = ?
+     ORDER BY id ASC`,
+      [p.id]
+    );
 
-    await db.execute(sql, params);
-    res.json({ message: 'Portfolio updated' });
+    const [items] = await exec(
+      `SELECT id, title, description, category, tech_stack, meta, order_index
+         FROM portfolio_items
+        WHERE portfolio_id = ?
+     ORDER BY order_index ASC, created_at DESC`,
+      [p.id]
+    );
+
+    // links / images grouped by item
+    const [links] = await exec(
+      `SELECT id, item_id, label, url, link_type, order_index
+         FROM portfolio_links
+        WHERE item_id IN (SELECT id FROM portfolio_items WHERE portfolio_id = ?)`,
+      [p.id]
+    );
+    const [images] = await exec(
+      `SELECT id, item_id, url, alt_text, order_index
+         FROM portfolio_images
+        WHERE item_id IN (SELECT id FROM portfolio_items WHERE portfolio_id = ?)`,
+      [p.id]
+    );
+
+    // re-shape items with children
+    const byItem = id => ({
+      links: links.filter(l => l.item_id === id),
+      images: images.filter(im => im.item_id === id),
+    });
+    const itemsFull = items.map(it => ({ ...it, ...byItem(it.id) }));
+
+    res.json({ portfolio: p, assets, items: itemsFull });
   } catch (err) {
-    if (err && err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ message: 'Slug already in use for this user' });
-    }
-    console.error(err);
-    res.status(500).json({ message: 'Update portfolio failed' });
+    console.error('PUBLIC FULL FETCH ERROR:', err);
+    res.status(500).json({ message: 'Fetch portfolio failed' });
   }
 });
 
-// Delete portfolio (cascades to items/images/links/assets)
-router.delete('/:id', verifyAccess, async (req, res) => {
-  try {
-    const uid = req.user.id;
-    const { id } = req.params;
-    const owns = await ensurePortfolioOwner(id, uid);
-    if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
 
-    await db.execute('DELETE FROM portfolios WHERE id = ?', [id]);
-    res.json({ message: 'Portfolio deleted' });
+router.get('/slug-available/:slug', verifyAccess, async (req, res) => {
+  try {
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+    const { slug } = req.params;
+    const [rows] = await exec('SELECT 1 FROM portfolios WHERE user_id = ? AND slug = ?', [uid, slug]);
+    res.json({ available: rows.length === 0 });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Delete portfolio failed' });
+    console.error('SLUG AVAIL ERROR:', err);
+    res.status(500).json({ message: 'Check failed' });
   }
 });
 
-// ========== PORTFOLIO ITEMS CRUD (Add/Edit/Delete) ==========
+/* ---------------------------- PORTFOLIO ITEMS ---------------------------- */
 
 // Create item
 // body: { portfolio_id, title, description?, category?, tech_stack?, meta?, order_index? }
 router.post('/portfolio-items', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const {
       portfolio_id,
       title,
@@ -157,7 +223,7 @@ router.post('/portfolio-items', verifyAccess, async (req, res) => {
       category = null,
       tech_stack = null,
       meta = {},
-      order_index = 0
+      order_index = 0,
     } = req.body;
 
     if (!portfolio_id || !title) {
@@ -172,12 +238,21 @@ router.post('/portfolio-items', verifyAccess, async (req, res) => {
         (portfolio_id, user_id, title, description, category, tech_stack, meta, order_index)
       VALUES (?, ?, ?, ?, ?, ?, CAST(? AS JSON), ?)
     `;
-    const [result] = await db.execute(sql, [
-      portfolio_id, uid, title, description, category, tech_stack, asJSON(meta), order_index
+    const [result] = await exec(sql, [
+      portfolio_id,
+      uid,
+      String(title).slice(0, 200),
+      description,
+      category,
+      tech_stack,
+      asJSON(meta),
+      order_index,
     ]);
+
     res.status(201).json({ id: result.insertId });
   } catch (err) {
-    console.error(err);
+    console.error('CREATE ITEM ERROR:', err);
+    if (err?.code === 'ER_DATA_TOO_LONG') return res.status(422).json({ message: 'One or more fields exceed maximum length' });
     res.status(500).json({ message: 'Create item failed' });
   }
 });
@@ -185,22 +260,24 @@ router.post('/portfolio-items', verifyAccess, async (req, res) => {
 // Read items for a portfolio
 router.get('/:portfolioId/items', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { portfolioId } = req.params;
     const owns = await ensurePortfolioOwner(portfolioId, uid);
     if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
 
-    const [rows] = await db.execute(
+    const [rows] = await exec(
       `SELECT id, portfolio_id, user_id, title, description, category, tech_stack, meta, order_index,
               created_at, updated_at
-       FROM portfolio_items
-       WHERE portfolio_id = ?
-       ORDER BY order_index ASC, created_at DESC`,
+         FROM portfolio_items
+        WHERE portfolio_id = ?
+     ORDER BY order_index ASC, created_at DESC`,
       [portfolioId]
     );
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error('FETCH ITEMS ERROR:', err);
     res.status(500).json({ message: 'Fetch items failed' });
   }
 });
@@ -208,20 +285,23 @@ router.get('/:portfolioId/items', verifyAccess, async (req, res) => {
 // Read single item
 router.get('/portfolio-items/:itemId', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { itemId } = req.params;
     const owns = await ensureItemOwner(itemId, uid);
     if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
 
-    const [rows] = await db.execute(
+    const [rows] = await exec(
       `SELECT id, portfolio_id, user_id, title, description, category, tech_stack, meta, order_index,
               created_at, updated_at
-       FROM portfolio_items WHERE id = ?`,
+         FROM portfolio_items
+        WHERE id = ?`,
       [itemId]
     );
     res.json(rows[0] || null);
   } catch (err) {
-    console.error(err);
+    console.error('FETCH ITEM ERROR:', err);
     res.status(500).json({ message: 'Fetch item failed' });
   }
 });
@@ -230,7 +310,9 @@ router.get('/portfolio-items/:itemId', verifyAccess, async (req, res) => {
 // body: any subset of { title, description, category, tech_stack, meta, order_index }
 router.put('/portfolio-items/:itemId', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { itemId } = req.params;
     const owns = await ensureItemOwner(itemId, uid);
     if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
@@ -243,9 +325,10 @@ router.put('/portfolio-items/:itemId', verifyAccess, async (req, res) => {
         if (key === 'meta') {
           sets.push('meta = CAST(? AS JSON)');
           params.push(asJSON(req.body.meta));
+        } else if (key === 'title') {
+          sets.push('title = ?'); params.push(String(req.body[key]).slice(0, 200));
         } else {
-          sets.push(`${key} = ?`);
-          params.push(req.body[key]);
+          sets.push(`${key} = ?`); params.push(req.body[key]);
         }
       }
     }
@@ -253,37 +336,42 @@ router.put('/portfolio-items/:itemId', verifyAccess, async (req, res) => {
 
     const sql = `UPDATE portfolio_items SET ${sets.join(', ')} WHERE id = ?`;
     params.push(itemId);
-    await db.execute(sql, params);
+    await exec(sql, params);
     res.json({ message: 'Item updated' });
   } catch (err) {
-    console.error(err);
+    console.error('UPDATE ITEM ERROR:', err);
+    if (err?.code === 'ER_DATA_TOO_LONG') return res.status(422).json({ message: 'One or more fields exceed maximum length' });
     res.status(500).json({ message: 'Update item failed' });
   }
 });
 
-// Delete item (cascades images/links via FK)
+// Delete item
 router.delete('/portfolio-items/:itemId', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { itemId } = req.params;
     const owns = await ensureItemOwner(itemId, uid);
     if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
 
-    await db.execute('DELETE FROM portfolio_items WHERE id = ?', [itemId]);
+    await exec('DELETE FROM portfolio_items WHERE id = ?', [itemId]);
     res.json({ message: 'Item deleted' });
   } catch (err) {
-    console.error(err);
+    console.error('DELETE ITEM ERROR:', err);
     res.status(500).json({ message: 'Delete item failed' });
   }
 });
 
-// ========== OPTIONAL: LINKS ==========
+/* --------------------------------- LINKS --------------------------------- */
 
 // Add link
 // body: { label, url, link_type?, order_index? }
 router.post('/portfolio-items/:itemId/links', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { itemId } = req.params;
     const owns = await ensureItemOwner(itemId, uid);
     if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
@@ -291,30 +379,33 @@ router.post('/portfolio-items/:itemId/links', verifyAccess, async (req, res) => 
     const { label, url, link_type = null, order_index = 0 } = req.body;
     if (!label || !url) return res.status(400).json({ message: 'label and url are required' });
 
-    const [result] = await db.execute(
+    const [result] = await exec(
       `INSERT INTO portfolio_links (item_id, label, url, link_type, order_index)
        VALUES (?, ?, ?, ?, ?)`,
-      [itemId, label, url, link_type, order_index]
+      [itemId, String(label).slice(0, 80), url, link_type, order_index]
     );
     res.status(201).json({ id: result.insertId });
   } catch (err) {
-    console.error(err);
+    console.error('ADD LINK ERROR:', err);
+    if (err?.code === 'ER_DATA_TOO_LONG') return res.status(422).json({ message: 'One or more fields exceed maximum length' });
     res.status(500).json({ message: 'Add link failed' });
   }
 });
 
+// Update link
 router.put('/portfolio-links/:linkId', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { linkId } = req.params;
 
-    // ownership via join back to item/portfolio/user
-    const [chk] = await db.execute(
+    const [chk] = await exec(
       `SELECT pl.id
-       FROM portfolio_links pl
-       JOIN portfolio_items pi ON pi.id = pl.item_id
-       JOIN portfolios p ON p.id = pi.portfolio_id
-       WHERE pl.id = ? AND p.user_id = ?`,
+         FROM portfolio_links pl
+         JOIN portfolio_items pi ON pi.id = pl.item_id
+         JOIN portfolios p ON p.id = pi.portfolio_id
+        WHERE pl.id = ? AND p.user_id = ?`,
       [linkId, uid]
     );
     if (!chk.length) return res.status(404).json({ message: 'Not found or unauthorized' });
@@ -322,50 +413,57 @@ router.put('/portfolio-links/:linkId', verifyAccess, async (req, res) => {
     const { label, url, link_type, order_index } = req.body;
     const sets = [];
     const params = [];
-    if (label !== undefined) { sets.push('label = ?'); params.push(label); }
-    if (url !== undefined) { sets.push('url = ?'); params.push(url); }
-    if (link_type !== undefined) { sets.push('link_type = ?'); params.push(link_type); }
-    if (order_index !== undefined) { sets.push('order_index = ?'); params.push(order_index); }
+    if (label !== undefined)      { sets.push('label = ?');      params.push(String(label).slice(0, 80)); }
+    if (url !== undefined)        { sets.push('url = ?');        params.push(url); }
+    if (link_type !== undefined)  { sets.push('link_type = ?');  params.push(link_type); }
+    if (order_index !== undefined){ sets.push('order_index = ?');params.push(order_index); }
+
     if (!sets.length) return res.json({ message: 'Nothing to update' });
 
     params.push(linkId);
-    await db.execute(`UPDATE portfolio_links SET ${sets.join(', ')} WHERE id = ?`, params);
+    await exec(`UPDATE portfolio_links SET ${sets.join(', ')} WHERE id = ?`, params);
     res.json({ message: 'Link updated' });
   } catch (err) {
-    console.error(err);
+    console.error('UPDATE LINK ERROR:', err);
+    if (err?.code === 'ER_DATA_TOO_LONG') return res.status(422).json({ message: 'One or more fields exceed maximum length' });
     res.status(500).json({ message: 'Update link failed' });
   }
 });
 
+// Delete link
 router.delete('/portfolio-links/:linkId', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { linkId } = req.params;
-    const [chk] = await db.execute(
+    const [chk] = await exec(
       `SELECT pl.id
-       FROM portfolio_links pl
-       JOIN portfolio_items pi ON pi.id = pl.item_id
-       JOIN portfolios p ON p.id = pi.portfolio_id
-       WHERE pl.id = ? AND p.user_id = ?`,
+         FROM portfolio_links pl
+         JOIN portfolio_items pi ON pi.id = pl.item_id
+         JOIN portfolios p ON p.id = pi.portfolio_id
+        WHERE pl.id = ? AND p.user_id = ?`,
       [linkId, uid]
     );
     if (!chk.length) return res.status(404).json({ message: 'Not found or unauthorized' });
 
-    await db.execute('DELETE FROM portfolio_links WHERE id = ?', [linkId]);
+    await exec('DELETE FROM portfolio_links WHERE id = ?', [linkId]);
     res.json({ message: 'Link deleted' });
   } catch (err) {
-    console.error(err);
+    console.error('DELETE LINK ERROR:', err);
     res.status(500).json({ message: 'Delete link failed' });
   }
 });
 
-// ========== OPTIONAL: IMAGES (assumes you already uploaded and have a URL) ==========
+/* -------------------------------- IMAGES --------------------------------- */
 
 // Add image
 // body: { url, alt_text?, order_index? }
 router.post('/portfolio-items/:itemId/images', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { itemId } = req.params;
     const owns = await ensureItemOwner(itemId, uid);
     if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
@@ -373,47 +471,54 @@ router.post('/portfolio-items/:itemId/images', verifyAccess, async (req, res) =>
     const { url, alt_text = null, order_index = 0 } = req.body;
     if (!url) return res.status(400).json({ message: 'url is required' });
 
-    const [result] = await db.execute(
+    const [result] = await exec(
       `INSERT INTO portfolio_images (item_id, url, alt_text, order_index)
        VALUES (?, ?, ?, ?)`,
       [itemId, url, alt_text, order_index]
     );
     res.status(201).json({ id: result.insertId });
   } catch (err) {
-    console.error(err);
+    console.error('ADD IMAGE ERROR:', err);
+    if (err?.code === 'ER_DATA_TOO_LONG') return res.status(422).json({ message: 'One or more fields exceed maximum length' });
     res.status(500).json({ message: 'Add image failed' });
   }
 });
 
+// Delete image
 router.delete('/portfolio-images/:imageId', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { imageId } = req.params;
 
-    const [chk] = await db.execute(
+    const [chk] = await exec(
       `SELECT pi.id
-       FROM portfolio_images pi
-       JOIN portfolio_items it ON it.id = pi.item_id
-       JOIN portfolios p ON p.id = it.portfolio_id
-       WHERE pi.id = ? AND p.user_id = ?`,
+         FROM portfolio_images pi
+         JOIN portfolio_items it ON it.id = pi.item_id
+         JOIN portfolios p ON p.id = it.portfolio_id
+        WHERE pi.id = ? AND p.user_id = ?`,
       [imageId, uid]
     );
     if (!chk.length) return res.status(404).json({ message: 'Not found or unauthorized' });
 
-    await db.execute('DELETE FROM portfolio_images WHERE id = ?', [imageId]);
+    await exec('DELETE FROM portfolio_images WHERE id = ?', [imageId]);
     res.json({ message: 'Image deleted' });
   } catch (err) {
-    console.error(err);
+    console.error('DELETE IMAGE ERROR:', err);
     res.status(500).json({ message: 'Delete image failed' });
   }
 });
 
-// ========== OPTIONAL: ASSETS (link/upload a full portfolio) ==========
+/* -------------------------------- ASSETS --------------------------------- */
 
+// Add asset (external/upload URL to preview)
 // body: { asset_type: 'external'|'upload', url, label? }
 router.post('/:portfolioId/assets', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { portfolioId } = req.params;
     const owns = await ensurePortfolioOwner(portfolioId, uid);
     if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
@@ -421,37 +526,133 @@ router.post('/:portfolioId/assets', verifyAccess, async (req, res) => {
     const { asset_type, url, label = null } = req.body;
     if (!asset_type || !url) return res.status(400).json({ message: 'asset_type and url are required' });
 
-    const [result] = await db.execute(
+    const [result] = await exec(
       `INSERT INTO portfolio_assets (portfolio_id, asset_type, url, label)
        VALUES (?, ?, ?, ?)`,
       [portfolioId, asset_type, url, label]
     );
     res.status(201).json({ id: result.insertId });
   } catch (err) {
-    console.error(err);
+    console.error('ADD ASSET ERROR:', err);
+    if (err?.code === 'ER_DATA_TOO_LONG') return res.status(422).json({ message: 'One or more fields exceed maximum length' });
     res.status(500).json({ message: 'Add asset failed' });
   }
 });
 
+// Delete asset
 router.delete('/portfolio-assets/:assetId', verifyAccess, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
     const { assetId } = req.params;
 
-    const [chk] = await db.execute(
+    const [chk] = await exec(
       `SELECT pa.id
-       FROM portfolio_assets pa
-       JOIN portfolios p ON p.id = pa.portfolio_id
-       WHERE pa.id = ? AND p.user_id = ?`,
+         FROM portfolio_assets pa
+         JOIN portfolios p ON p.id = pa.portfolio_id
+        WHERE pa.id = ? AND p.user_id = ?`,
       [assetId, uid]
     );
     if (!chk.length) return res.status(404).json({ message: 'Not found or unauthorized' });
 
-    await db.execute('DELETE FROM portfolio_assets WHERE id = ?', [assetId]);
+    await exec('DELETE FROM portfolio_assets WHERE id = ?', [assetId]);
     res.json({ message: 'Asset deleted' });
   } catch (err) {
-    console.error(err);
+    console.error('DELETE ASSET ERROR:', err);
     res.status(500).json({ message: 'Delete asset failed' });
+  }
+});
+
+/* ----------------------- READ ONE & UPDATE/DELETE ------------------------ */
+
+// READ ONE (owner-only) — returns a preview URL from assets
+router.get('/:id', verifyAccess, async (req, res) => {
+  try {
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
+    const { id } = req.params;
+    const owns = await ensurePortfolioOwner(id, uid);
+    if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
+
+    const [rows] = await exec(
+      `SELECT p.id, p.title, p.subtitle, p.bio, p.slug, p.is_public, p.created_at, p.updated_at,
+              (SELECT url FROM portfolio_assets WHERE portfolio_id = p.id ORDER BY id DESC LIMIT 1) AS url
+         FROM portfolios p
+        WHERE p.id = ?`,
+      [id]
+    );
+
+    if (!rows.length) return res.status(404).json({ message: 'Portfolio not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('READ PORTFOLIO BY ID ERROR:', err);
+    res.status(500).json({ message: 'Fetch portfolio failed' });
+  }
+});
+
+// UPDATE (owner-only)
+router.put('/:id', verifyAccess, async (req, res) => {
+  try {
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
+    const { id } = req.params;
+    const owns = await ensurePortfolioOwner(id, uid);
+    if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
+
+    const fields = ['title','subtitle','bio','slug','is_public'];
+    const sets = [];
+    const params = [];
+
+    for (const f of fields) {
+      if (req.body[f] !== undefined) {
+        if (f === 'is_public') {
+          sets.push('is_public = ?');
+          params.push(Number(req.body[f] ? 1 : 0));
+        } else if (f === 'title') {
+          sets.push('title = ?'); params.push(String(req.body[f]).trim().slice(0, 120));
+        } else if (f === 'slug') {
+          sets.push('slug = ?'); params.push(String(req.body[f]).trim().slice(0, 120));
+        } else if (f === 'subtitle' && req.body[f] !== null) {
+          sets.push('subtitle = ?'); params.push(String(req.body[f]).slice(0, 200));
+        } else {
+          sets.push(`${f} = ?`); params.push(req.body[f]);
+        }
+      }
+    }
+
+    if (!sets.length) return res.json({ message: 'Nothing to update' });
+
+    const sql = `UPDATE portfolios SET ${sets.join(', ')} WHERE id = ?`;
+    params.push(id);
+
+    await exec(sql, params);
+    res.json({ message: 'Portfolio updated' });
+  } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY')     return res.status(409).json({ message: 'Slug already in use for this user' });
+    if (err?.code === 'ER_DATA_TOO_LONG') return res.status(422).json({ message: 'One or more fields exceed maximum length' });
+    console.error('UPDATE PORTFOLIO ERROR:', err);
+    res.status(500).json({ message: 'Update portfolio failed' });
+  }
+});
+
+// DELETE (owner-only)
+router.delete('/:id', verifyAccess, async (req, res) => {
+  try {
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: 'Invalid token payload' });
+
+    const { id } = req.params;
+    const owns = await ensurePortfolioOwner(id, uid);
+    if (!owns) return res.status(404).json({ message: 'Not found or unauthorized' });
+
+    await exec('DELETE FROM portfolios WHERE id = ?', [id]);
+    res.json({ message: 'Portfolio deleted' });
+  } catch (err) {
+    console.error('DELETE PORTFOLIO ERROR:', err);
+    res.status(500).json({ message: 'Delete portfolio failed' });
   }
 });
 
