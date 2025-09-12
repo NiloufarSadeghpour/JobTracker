@@ -46,7 +46,6 @@ export default function PortfolioBoard() {
   };
 
   const goEdit = (p) => {
-    // ⚠️ Your routes use /portfolio-builder (per App.jsx)
     navigate('/portfolio-builder', { state: { initialData: p || {} } });
   };
 

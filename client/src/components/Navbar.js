@@ -69,9 +69,6 @@ const Navbar = ({ user, setUser }) => {
     navigate('/');
   };
 
-  /* ----------------------------------------------------------------
-     ADMIN ANNOUNCEMENTS (your existing flow, kept as-is)
-  ----------------------------------------------------------------- */
   const [adminUnread, setAdminUnread] = useState(0);
   const [adminShowPopup, setAdminShowPopup] = useState(false);
   const [latestSender, setLatestSender] = useState('');
@@ -105,9 +102,6 @@ const Navbar = ({ user, setUser }) => {
     }
   }, [setUser, user]);
 
-  /* ----------------------------------------------------------------
-     USER NOTIFICATIONS (deadlines, etc.) — NEW but isolated state
-  ----------------------------------------------------------------- */
   const [userUnread, setUserUnread] = useState(0);
   const [userOpen, setUserOpen] = useState(false);
   const [userItems, setUserItems] = useState([]);
@@ -133,7 +127,6 @@ const Navbar = ({ user, setUser }) => {
     } catch {}
   };
 
-  // polling + focus refresh
   useEffect(() => {
     fetchAdminUnread(false);
     fetchUserNotifications();
@@ -172,7 +165,6 @@ const Navbar = ({ user, setUser }) => {
                     <NavItem to="/admin" pathname={pathname}>Dashboard</NavItem>
                     <NavItem to="/admin/users" pathname={pathname}>Users</NavItem>
 
-                    {/* ADMIN announcements bell (existing) */}
                     <div className="relative">
                       <Link
                         to="/admin/messages"
@@ -202,7 +194,6 @@ const Navbar = ({ user, setUser }) => {
                     <NavItem to="/jobs" pathname={pathname}>Jobs</NavItem>
                     <NavItem to="/portfolio-builder" pathname={pathname}>Portfolio</NavItem>
 
-                    {/* USER notifications bell (deadlines etc.) */}
                     <div className="relative">
                       <button
                         onClick={() => setUserOpen(o => !o)}
@@ -314,7 +305,6 @@ const Navbar = ({ user, setUser }) => {
         </div>
       </div>
 
-      {/* Admin announcement popup (unchanged) */}
       {user?.role === 'admin' && adminShowPopup && adminHasNew && (
         <div
           role="dialog"

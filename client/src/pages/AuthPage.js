@@ -8,7 +8,7 @@ import welcomeMan from '../images/Welcome-Man.png';
 
 export default function AuthPage({ setUser }) {
 const navigate = useNavigate();
-const [mode, setMode] = useState('register'); // 'login' | 'register'
+const [mode, setMode] = useState('register'); 
 const [rememberMe, setRememberMe] = useState(false);
 const [submitting, setSubmitting] = useState(false);
 const [error, setError] = useState('');

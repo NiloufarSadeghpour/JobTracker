@@ -37,7 +37,6 @@ const Home = () => {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const quote = QUOTES[quoteIndex];
 
-  // Start with a random quote on first render
   const startIndex = useMemo(() => Math.floor(Math.random() * QUOTES.length), []);
   useEffect(() => {
     setQuoteIndex(startIndex);

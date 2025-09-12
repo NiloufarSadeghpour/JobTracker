@@ -24,7 +24,6 @@ export default function ProjectBoard() {
     })();
   }, []);
 
-  // tech_stack may be CSV string or array
   const parseStack = (v) =>
     Array.isArray(v)
       ? v

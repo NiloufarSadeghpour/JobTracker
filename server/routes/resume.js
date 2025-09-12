@@ -37,11 +37,10 @@ router.post('/', verifyAccess, (req, res) => {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      // 🔑 absolute URL for the FE viewer
       const fileUrl = toAbsolute(req, filePath);
       return res.json({
         message: 'Resume uploaded successfully',
-        fileUrl,      // absolute (embed/open directly)
+        fileUrl,      
       });
     });
   });
@@ -60,12 +59,11 @@ router.get('/', verifyAccess, (req, res) => {
     const row = results?.[0];
     if (!row?.resume_path) return res.status(404).json({ message: 'No resume uploaded' });
 
-    const fileUrl = toAbsolute(req, row.resume_path); // 🔑 absolute
+    const fileUrl = toAbsolute(req, row.resume_path); 
     res.json({ fileUrl, path: row.resume_path });
   });
 });
 
-// Optional: /resumes/:id -> return same thing for compatibility with your FE
 router.get('/:id', verifyAccess, (req, res) => {
   const uid = getUid(req);
   if (!uid) return res.status(401).json({ message: 'Invalid token payload' });

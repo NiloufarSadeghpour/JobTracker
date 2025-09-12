@@ -1,6 +1,6 @@
 // src/pages/Contact.js
 import React, { useState } from 'react';
-import axios from '../utils/axios'; // your existing axios instance
+import axios from '../utils/axios'; 
 
 const initial = { name: '', email: '', subject: '', message: '', company: '' }; // company = honeypot
 
@@ -105,7 +105,7 @@ export default function Contact() {
             {errors.email && <p id="email-err" className="mt-1 text-xs text-red-500">{errors.email}</p>}
           </div>
 
-          {/* Subject (optional) */}
+          {/* Subject */}
           <div className="mb-5">
             <label htmlFor="subject" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               Subject <span className="text-slate-400">(optional)</span>

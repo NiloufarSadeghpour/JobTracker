@@ -13,7 +13,6 @@ import AICoverLetter from "../components/AICoverLetter";
 
 export default function DashboardPage() {
   useEffect(() => {
-    // Prime interceptor token from localStorage on hard refresh
     const t = localStorage.getItem('token');
     if (t) tokenStore.set(t);
   }, []);
@@ -34,7 +33,7 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* (Optional) quick stats */}
+        {/* quick stats */}
         <AnalyticsSummary />
 
         {/* Jobs */}

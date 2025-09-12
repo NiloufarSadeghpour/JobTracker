@@ -24,7 +24,7 @@ export default function AdminUsers({ user, setUser }) {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ username:'', email:'', password:'', role:'user', is_active:1 });
 
-  const [pwEdit, setPwEdit] = useState({}); // { [id]: 'newPass' }
+  const [pwEdit, setPwEdit] = useState({}); 
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);
   const navigate = useNavigate();

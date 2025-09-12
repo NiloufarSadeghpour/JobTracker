@@ -24,9 +24,9 @@ export default function AdminPortfolios({ user, setUser }) {
   const [loading, setLoading]     = useState(true);
   const [err, setErr]             = useState('');
 
-  const [editing, setEditing]     = useState({}); // { [id]: true }
-  const [form, setForm]           = useState({}); // { [id]: { title, slug, summary, is_public } }
-  const [notesFor, setNotesFor]   = useState(null); // { type:'portfolio', id }
+  const [editing, setEditing]     = useState({}); 
+  const [form, setForm]           = useState({}); 
+  const [notesFor, setNotesFor]   = useState(null); 
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);
   const navigate = useNavigate();
@@ -41,8 +41,8 @@ export default function AdminPortfolios({ user, setUser }) {
       ...prev,
       [p.id]: {
         title:   p.title   || '',
-        slug:    p.slug    || '',       // adjust if your API uses different field
-        summary: p.summary || '',       // optional field; remove if not present
+        slug:    p.slug    || '',       
+        summary: p.summary || '',      
         is_public: Number(p.is_public) ? 1 : 0,
       }
     }));

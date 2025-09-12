@@ -40,7 +40,7 @@ export default function ResumeUpload() {
     setProgress(0);
 
     const formData = new FormData();
-    formData.append('resume', file); // ← field name must match backend
+    formData.append('resume', file); 
 
     try {
       setBusy(true);

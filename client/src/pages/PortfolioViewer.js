@@ -41,7 +41,6 @@ export default function PortfolioViewer() {
 
         {firstAsset ? (
           <>
-            {/* try embed, fallback link */}
             <iframe title="Portfolio"
               src={firstAsset.url}
               style={{ width:'100%', height:'70vh', border:'1px solid var(--border)', borderRadius:12 }}

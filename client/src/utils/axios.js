@@ -18,7 +18,6 @@ const instance = axios.create({
 instance.interceptors.request.use((config) => {
   const t = tokenStore.get();
   if (t) {
-    // Ensure headers object exists before setting
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${t}`;
   }
@@ -32,14 +31,12 @@ instance.interceptors.response.use(
   async (err) => {
     const original = err?.config || {};
 
-    // If no response (true network error), don't try to refresh
     if (!err.response) {
       return Promise.reject(err);
     }
 
     const status = err.response.status;
 
-    // Don't attempt refresh for auth endpoints themselves
     const url = (original.url || '');
     const isAuthEndpoint =
       url.includes('/auth/login') ||

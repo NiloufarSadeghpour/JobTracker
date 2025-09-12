@@ -26,7 +26,6 @@ export default function PortfolioPage() {
   const [previewMedia, setPreviewMedia] = useState([]);
   const titleInputRef = useRef(null);
 
-  // Rehydrate ONLY when record identity changes
   useEffect(() => {
     const newId = initialData?.id ?? null;
     setCurrentId(newId);
@@ -39,7 +38,6 @@ export default function PortfolioPage() {
         is_public: !!initialData.is_public,
       }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData?.id]);
 
   const validate = () => {
@@ -77,7 +75,6 @@ export default function PortfolioPage() {
       setFeedback('Portfolio deleted.');
       setCurrentId(null);
       setForm(f => ({ ...f, title: '', bio: '', slug: '', is_public: false }));
-      // bounce back to dashboard after a moment
       setTimeout(() => navigate('/dashboard'), 600);
     } catch (err) {
       setFeedback(err?.response?.data?.message || 'Error deleting portfolio.');
@@ -115,7 +112,7 @@ const handleSubmit = async (e) => {
     const payload = {
       title: form.title,
       subtitle: '',
-      bio: form.bio,              // you can store HTML; sanitize on render
+      bio: form.bio,              
       slug: form.slug,
       is_public: form.is_public,
     };
@@ -127,7 +124,6 @@ const handleSubmit = async (e) => {
     const id = currentId || res?.data?.id;
     if (!currentId && id) setCurrentId(id);
 
-    // upload file (optional) then save asset
     const uploadedUrl = await uploadMediaIfNeeded();
     await saveAssetIfNeeded(id, uploadedUrl);
 

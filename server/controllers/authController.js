@@ -15,7 +15,7 @@ const isProd = process.env.NODE_ENV === 'production';
 // ---- HELPERS ----
 function signAccessToken(user) {
   return jwt.sign(
-    { sub: user.id, email: user.email, role: user.role },   // ← include role
+    { sub: user.id, email: user.email, role: user.role },   //  include role
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TTL }
   );
@@ -23,7 +23,6 @@ function signAccessToken(user) {
 
 
 function signRefreshToken(user, remember) {
-  // Encode a 'typ' claim and the 'remember' flag so we can preserve persistence on rotation
   return jwt.sign(
     { sub: user.id, typ: 'refresh', remember: !!remember },
     process.env.JWT_REFRESH_SECRET,
@@ -32,7 +31,6 @@ function signRefreshToken(user, remember) {
 }
 
 function setRefreshCookie(res, token, remember) {
-  // Scope broadly to '/' so path changes/proxies won't drop the cookie
   res.cookie('refreshToken', token, {
     httpOnly: true,
     secure: isProd,            // only true under HTTPS in production
@@ -43,7 +41,6 @@ function setRefreshCookie(res, token, remember) {
 }
 
 function clearRefreshCookie(res) {
-  // Must match the same path/options used to set
   res.clearCookie('refreshToken', { path: '/' });
 }
 
@@ -177,8 +174,6 @@ exports.me = async (req, res) => {
   }
 };
 
-// POST /api/auth/register-admin
-// body: { token, username, password }
 exports.registerAdminFromInvite = async (req, res) => {
   try {
     const { token, username, password } = req.body || {};

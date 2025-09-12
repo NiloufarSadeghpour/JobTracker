@@ -18,7 +18,7 @@ export default function EditJobPage() {
       try {
         setLoading(true);
         setErr('');
-        // ✅ No manual Authorization header; interceptor handles it
+        // No manual Authorization header; interceptor handles it
         const res = await axios.get(`/jobs/${id}`);
         if (mounted) setJobData(res.data);
       } catch (e) {
@@ -39,7 +39,7 @@ export default function EditJobPage() {
 
   const handleUpdate = async (formData) => {
     try {
-      await axios.put(`/jobs/${id}`, formData); // ✅ interceptor adds token
+      await axios.put(`/jobs/${id}`, formData); // interceptor adds token
       navigate('/dashboard');
     } catch (e) {
       const msg = e?.response?.data?.message || 'Failed to update job.';

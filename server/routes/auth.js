@@ -10,9 +10,9 @@ const { register, login, refresh, logout, me, registerAdminFromInvite } =
 const { verifyAccess } = require('../middleware/authMiddleware');
 
 const loginLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,           // 10 minutes window
-  max: 20,                            // allow 20 attempts per IP
-  standardHeaders: true,              // include RateLimit-* headers
+  windowMs: 10 * 60 * 1000,           
+  max: 20,                            
+  standardHeaders: true,              
   legacyHeaders: false,
   message: { error: 'Too many login attempts, try again later.' }
 });
@@ -20,11 +20,11 @@ const loginLimiter = rateLimit({
 // Public endpoints
 router.post('/register', register);
 router.post('/login',loginLimiter, login);
-router.post('/refresh', refresh);                 // use cookie to issue new access token
-router.post('/register-admin', registerAdminFromInvite);  // redeem invite to create admin
+router.post('/refresh', refresh);                 
+router.post('/register-admin', registerAdminFromInvite);  
 
 // Protected endpoints
-router.post('/logout', logout);                   // clears refresh cookie
-router.get('/me', verifyAccess, me);              // return user profile if access token valid
+router.post('/logout', logout);                  
+router.get('/me', verifyAccess, me);             
 
 module.exports = router;

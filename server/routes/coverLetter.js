@@ -92,7 +92,7 @@ router.post("/", async (req, res) => {
     let {
       jobDescription,
       cvText,
-      role, // no PhD default here
+      role,
       tone = "professional",
       wordTarget = 400,
     } = req.body;

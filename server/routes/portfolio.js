@@ -1,7 +1,7 @@
 // routes/portfolios.js
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db'); // mysql2 callback connection
+const db = require('../config/db'); 
 const { verifyAccess } = require('../middleware/authMiddleware');
 
 /* -------------------------------- Helpers -------------------------------- */
@@ -19,7 +19,6 @@ const asJSON = (obj) => {
   try { return JSON.stringify(obj ?? {}); } catch { return '{}'; }
 };
 
-// normalize user id from either id or sub (JWT payload variants)
 function getUid(req) {
   return req?.user?.id ?? req?.user?.sub ?? null;
 }
@@ -46,7 +45,6 @@ async function ensureItemOwner(itemId, userId) {
 /* ------------------------------ PORTFOLIOS ------------------------------- */
 
 // Create portfolio
-// body: { title, subtitle, bio, slug, is_public }
 router.post('/', verifyAccess, async (req, res) => {
   try {
     const uid = getUid(req);
@@ -55,13 +53,11 @@ router.post('/', verifyAccess, async (req, res) => {
     let { title, subtitle = null, bio = null, slug, is_public = 0 } = req.body;
     if (!title || !slug) return res.status(400).json({ message: 'title and slug are required' });
 
-    // clip to schema lengths
     title = String(title).trim().slice(0, 120);
     slug  = String(slug).trim().slice(0, 120);
     if (subtitle !== null && subtitle !== undefined) subtitle = String(subtitle).slice(0, 200);
     if (typeof bio === 'string') bio = bio.trim();
 
-    // FK precheck
     const [[u]] = await exec('SELECT id FROM users WHERE id = ?', [uid]);
     if (!u) return res.status(401).json({ message: 'User not found' });
 
@@ -210,7 +206,6 @@ router.get('/slug-available/:slug', verifyAccess, async (req, res) => {
 /* ---------------------------- PORTFOLIO ITEMS ---------------------------- */
 
 // Create item
-// body: { portfolio_id, title, description?, category?, tech_stack?, meta?, order_index? }
 router.post('/portfolio-items', verifyAccess, async (req, res) => {
   try {
     const uid = getUid(req);
@@ -307,7 +302,6 @@ router.get('/portfolio-items/:itemId', verifyAccess, async (req, res) => {
 });
 
 // Update item
-// body: any subset of { title, description, category, tech_stack, meta, order_index }
 router.put('/portfolio-items/:itemId', verifyAccess, async (req, res) => {
   try {
     const uid = getUid(req);
@@ -365,8 +359,6 @@ router.delete('/portfolio-items/:itemId', verifyAccess, async (req, res) => {
 
 /* --------------------------------- LINKS --------------------------------- */
 
-// Add link
-// body: { label, url, link_type?, order_index? }
 router.post('/portfolio-items/:itemId/links', verifyAccess, async (req, res) => {
   try {
     const uid = getUid(req);
@@ -458,7 +450,6 @@ router.delete('/portfolio-links/:linkId', verifyAccess, async (req, res) => {
 /* -------------------------------- IMAGES --------------------------------- */
 
 // Add image
-// body: { url, alt_text?, order_index? }
 router.post('/portfolio-items/:itemId/images', verifyAccess, async (req, res) => {
   try {
     const uid = getUid(req);
@@ -512,8 +503,7 @@ router.delete('/portfolio-images/:imageId', verifyAccess, async (req, res) => {
 
 /* -------------------------------- ASSETS --------------------------------- */
 
-// Add asset (external/upload URL to preview)
-// body: { asset_type: 'external'|'upload', url, label? }
+// Add asset
 router.post('/:portfolioId/assets', verifyAccess, async (req, res) => {
   try {
     const uid = getUid(req);
@@ -566,7 +556,7 @@ router.delete('/portfolio-assets/:assetId', verifyAccess, async (req, res) => {
 
 /* ----------------------- READ ONE & UPDATE/DELETE ------------------------ */
 
-// READ ONE (owner-only) — returns a preview URL from assets
+// READ ONE (owner-only)
 router.get('/:id', verifyAccess, async (req, res) => {
   try {
     const uid = getUid(req);

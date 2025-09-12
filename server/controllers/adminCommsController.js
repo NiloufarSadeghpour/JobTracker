@@ -7,10 +7,6 @@ function toInt(v, d) { const n = parseInt(v, 10); return Number.isFinite(n) && n
 function isAdmin(user) { return user?.role === 'admin'; }
 
 // ========== ANNOUNCEMENTS ==========
-/**
- * GET /api/admin/announcements?include_expired=0|1&limit=50&offset=0
- * Returns: { items: [...], unread: number }
- */
 async function listAnnouncements(req, res) {
   try {
     const includeExpired = String(req.query.include_expired || '0') === '1';
@@ -38,7 +34,7 @@ async function listAnnouncements(req, res) {
       ORDER BY a.created_at DESC
       LIMIT ? OFFSET ?
       `,
-      [me, limit, offset, ...params] // params is empty but keeps pattern consistent
+      [me, limit, offset, ...params] 
     );
 
     const unreadRow = await query(
@@ -60,10 +56,6 @@ async function listAnnouncements(req, res) {
   }
 }
 
-/**
- * POST /api/admin/announcements
- * Body: { title, body, expires_at? (ISO or 'YYYY-MM-DD HH:MM:SS') }
- */
 async function createAnnouncement(req, res) {
   try {
     const { title, body, expires_at } = req.body || {};
@@ -90,9 +82,6 @@ async function createAnnouncement(req, res) {
   }
 }
 
-/**
- * POST /api/admin/announcements/:id/read
- */
 async function markAnnouncementRead(req, res) {
   try {
     const id = toInt(req.params.id, 0);
@@ -112,9 +101,6 @@ async function markAnnouncementRead(req, res) {
   }
 }
 
-/**
- * DELETE /api/admin/announcements/:id
- */
 async function deleteAnnouncement(req, res) {
   try {
     const id = toInt(req.params.id, 0);
@@ -132,9 +118,6 @@ async function deleteAnnouncement(req, res) {
 }
 
 // ========== NOTES ==========
-/**
- * GET /api/admin/notes?entity_type=user|job|portfolio&entity_id=123
- */
 async function listNotes(req, res) {
   try {
     const { entity_type, entity_id } = req.query || {};
@@ -162,10 +145,6 @@ async function listNotes(req, res) {
   }
 }
 
-/**
- * POST /api/admin/notes
- * Body: { entity_type, entity_id, body }
- */
 async function createNote(req, res) {
   try {
     const { entity_type, entity_id, body } = req.body || {};
@@ -199,9 +178,6 @@ async function createNote(req, res) {
   }
 }
 
-/**
- * DELETE /api/admin/notes/:id
- */
 async function deleteNote(req, res) {
   try {
     const id = toInt(req.params.id, 0);
@@ -219,12 +195,10 @@ async function deleteNote(req, res) {
 }
 
 module.exports = {
-  // announcements
   listAnnouncements,
   createAnnouncement,
   markAnnouncementRead,
   deleteAnnouncement,
-  // notes
   listNotes,
   createNote,
   deleteNote,

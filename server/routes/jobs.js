@@ -15,7 +15,7 @@ const toNull = (v) => {
 
 // GET all jobs (search + status + tags + highlight + pagination)
 router.get('/', verifyAccess, (req, res) => {
-  const userId = req.user.sub;   // ✅ use sub
+  const userId = req.user.sub;   
   const {
     search = '',
     status = 'All',

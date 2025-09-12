@@ -1,6 +1,3 @@
-// =============================================
-// src/hooks/useJobStats.js  — user-scoped
-// =============================================
 import { useEffect, useMemo, useState } from "react";
 import axios, { tokenStore } from "../utils/axios";
 
@@ -25,7 +22,6 @@ const mockJobs = [
 function parseJwtSub(token) {
   try {
     const payload = JSON.parse(atob(token.split(".")[1] || ""));
-    // common fields you might use: sub | userId | id
     return payload?.sub || payload?.userId || payload?.id || null;
   } catch {
     return null;
@@ -73,7 +69,6 @@ export function useJobStats({ jobs: jobsOverride } = {}) {
             if (data) break;
           } catch (e) {
             lastErr = e;
-            // try next endpoint
           }
         }
         if (!mounted) return;
@@ -92,13 +87,11 @@ export function useJobStats({ jobs: jobsOverride } = {}) {
           const myId = token ? parseJwtSub(token) : null;
 
           if (myId) {
-            // guess common user id fields
             const idFields = ["userId", "ownerId", "user", "owner"];
             const field = idFields.find((f) => f in (arr[0] || {}));
             if (field) {
               arr = arr.filter((j) => {
                 const v = j[field];
-                // support both primitives and objects { id: ... }
                 return (typeof v === "object" && v?.id === myId) || v === myId;
               });
             }
@@ -130,7 +123,6 @@ export function useJobStats({ jobs: jobsOverride } = {}) {
     const rejections = arr.filter((j) => norm(j.status) === STATUS.REJECTED).length;
     const successRate = total ? offers / total : 0;
 
-    // Group by YYYY-MM for a tiny trend chart
     const byMonthMap = new Map();
     for (const j of arr) {
       const d = new Date(j.createdAt || j.appliedAt || j.updatedAt || Date.now());

@@ -260,9 +260,9 @@ async function deleteUser(req, res) {
   }
 }
 
-/* ===========================
+/* 
    ADMIN: JOBS MANAGEMENT
-   =========================== */
+  */
 async function listJobs(req, res) {
   try {
     const {
@@ -406,9 +406,9 @@ async function deleteJob(req, res) {
   }
 }
 
-/* ===========================
+/* 
    ADMIN: PORTFOLIOS MANAGEMENT
-   =========================== */
+    */
 async function listPortfolios(req, res) {
   try {
     const { q = '', is_public, user_id, page = 1, limit = 20, sort = 'created_at', order = 'desc' } = req.query;
@@ -504,7 +504,7 @@ async function deletePortfolio(req, res) {
     const { id } = req.params;
     const r = await query(`SELECT id FROM portfolios WHERE id=?`, [id]);
     if (!r.length) return res.status(404).json({ message: 'Portfolio not found' });
-    await query(`DELETE FROM portfolios WHERE id=?`, [id]); // cascades to items/images/links via FKs
+    await query(`DELETE FROM portfolios WHERE id=?`, [id]); 
     res.json({ ok: true });
   } catch (err) {
     console.error('deletePortfolio error', err);
@@ -512,9 +512,9 @@ async function deletePortfolio(req, res) {
   }
 }
 
-/* ===========================
+/* 
    ADMIN: INVITES MANAGEMENT
-   =========================== */
+    */
 async function listInvites(req, res) {
   try {
     const rows = await query(
@@ -546,10 +546,9 @@ async function revokeInvite(req, res) {
   }
 }
 
-/* ===========================
+/*
    ADMIN: IMPERSONATE USER
-   =========================== */
-// POST body: { user_id }
+    */
 async function impersonateUser(req, res) {
   try {
     const { user_id } = req.body || {};
@@ -560,7 +559,6 @@ async function impersonateUser(req, res) {
     const target = rows[0];
 
     if (!target.is_active) return res.status(400).json({ message: 'Target user is inactive' });
-    // Block impersonating admins (change if you want to allow)
     if (target.role === 'admin') return res.status(400).json({ message: 'Cannot impersonate an admin' });
 
     const token = jwt.sign(

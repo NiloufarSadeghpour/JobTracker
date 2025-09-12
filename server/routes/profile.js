@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyAccess } = require('../middleware/authMiddleware');  // ✅ use the correct middleware
+const { verifyAccess } = require('../middleware/authMiddleware');  
 const db = require('../config/db');
 
 router.get('/', verifyAccess, (req, res) => {

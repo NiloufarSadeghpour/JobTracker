@@ -42,7 +42,6 @@ export default function AdminDashboard({ user, setUser }) {
 
   return (
     <AdminShell user={user} setUser={setUser}>
-      
 
       {loading && <p style={{ marginTop: 8 }}>Loading…</p>}
 
@@ -163,7 +162,6 @@ function Panel({ title, children }) {
   );
 }
 
-/* === Styles: match user cards === */
 const wrap   = { maxWidth: 1200, margin: '0 auto', padding: '8px 24px 32px' };
 const grid   = { display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' };
 

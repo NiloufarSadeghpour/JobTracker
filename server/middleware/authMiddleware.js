@@ -10,7 +10,6 @@ function verifyAccess(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-    // Expect payload like: { sub: userId, email, role: 'user'|'admin', iat, exp }
     req.user = payload;
     return next();
   } catch (e) {

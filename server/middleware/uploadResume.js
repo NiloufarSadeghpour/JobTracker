@@ -21,7 +21,6 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const uid = getUid(req);
     if (!uid) return cb(new Error('Invalid token payload (no user id)'));
-    // Force .pdf extension; prevent weird mixed-case/mime mismatches
     const ext = path.extname(file.originalname || '').toLowerCase() === '.pdf' ? '.pdf' : '.pdf';
     const ts = Date.now(); // avoid caching / overwrites
     cb(null, `resume_${uid}_${ts}${ext}`);
@@ -29,7 +28,6 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  // Accept only PDFs (mimetype can vary on some browsers; extension helps)
   const isPdf = file.mimetype === 'application/pdf' ||
                 (file.originalname && /\.pdf$/i.test(file.originalname));
   if (!isPdf) return cb(new Error('Only PDF files are allowed'), false);
@@ -37,7 +35,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 const limits = {
-  fileSize: 5 * 1024 * 1024, // 5MB
+  fileSize: 5 * 1024 * 1024, 
 };
 
 module.exports = multer({ storage, fileFilter, limits });

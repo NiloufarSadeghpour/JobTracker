@@ -7,10 +7,9 @@ export default function FavoritesBoard() {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
-  const [pending, setPending] = useState({}); // { [favId]: true }
+  const [pending, setPending] = useState({}); 
 
   useEffect(() => {
-    // ensure token header is primed (in case of hard refresh)
     const t = localStorage.getItem('token');
     if (t && tokenStore?.set) tokenStore.set(t);
 
@@ -37,18 +36,15 @@ export default function FavoritesBoard() {
       await axios.delete(`/favorites/${fav.id}`);
 
     } catch (e1) {
-      // Fallbacks for different API shapes; comment out those you don't need.
       try {
         if (fav.jobId) {
           await axios.delete(`/favorites/job/${fav.jobId}`);
         } else if (fav.type && fav.value) {
-          // Generic payload remove
           await axios.delete('/favorites', { data: { type: fav.type, value: fav.value } });
         } else {
           throw e1;
         }
       } catch (e2) {
-        // revert optimistic update
         setFavorites(prev);
         setErr(e2?.response?.data?.message || 'Failed to remove favorite');
       }
@@ -117,7 +113,6 @@ export default function FavoritesBoard() {
                   View
                 </Link>
               )}
-              {/* Add other deep links if your favorite types include portfolios/projects */}
               {fav.portfolioId && (
                 <Link
                   to={`/portfolio/${fav.portfolioId}`}

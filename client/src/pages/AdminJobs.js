@@ -25,8 +25,8 @@ export default function AdminJobs({ user, setUser }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr]         = useState('');
 
-  const [editing, setEditing] = useState({}); // { [id]: true }
-  const [form, setForm]       = useState({}); // { [id]: {...fields} }
+  const [editing, setEditing] = useState({}); 
+  const [form, setForm]       = useState({}); 
   const [notesFor, setNotesFor] = useState(null);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);

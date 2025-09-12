@@ -27,7 +27,7 @@ const corsOptions = {
   exposedHeaders: ['set-cookie'],
 };
 
-const { notifyThreeDaysLeft } = require('./cron/deadlineNotifier'); // <— destructure
+const { notifyThreeDaysLeft } = require('./cron/deadlineNotifier'); 
 
 cron.schedule('5 * * * *', async () => {
   try {
@@ -57,7 +57,7 @@ const coverLetterRoutes = require("./routes/coverLetter");
 const notificationsRoute = require('./routes/notifications');
 
 app.use('/api/auth', authRoutes);
-app.use('/api/jobs', require('./routes/jobs'));         // protect inside file with verifyAccess
+app.use('/api/jobs', require('./routes/jobs'));         
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/favorites', require('./routes/favorites'));

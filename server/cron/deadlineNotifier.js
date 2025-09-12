@@ -20,10 +20,10 @@ async function notifyThreeDaysLeft() {
     'deadline_3',
     `Deadline in 3 days`,
     `“${r.title}” at ${r.company} is due on ${new Date(r.deadline).toLocaleDateString()}`,
-    null, // link (optional)
+    null, 
   ]));
 
-  // 6 placeholders -> 6 fields per row
+ 
   await query(
     `INSERT INTO notifications
       (user_id, job_id, kind, title, body, link, is_read, created_at)
@@ -32,4 +32,4 @@ async function notifyThreeDaysLeft() {
   );
 }
 
-module.exports = { notifyThreeDaysLeft };  // <— named export as an object
+module.exports = { notifyThreeDaysLeft };  

@@ -58,9 +58,7 @@ const Footer = () => {
           </ul>
         </nav>
 
-        {/* Socials + back to top (optional) */}
         <div className="flex md:justify-end items-center gap-3">
-          {/* Replace hrefs as needed or remove icons you don't use */}
           <a
             href="mailto:hello@example.com"
             className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"

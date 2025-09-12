@@ -13,7 +13,7 @@ export default function AICoverLetter({ initialRole = "" }) {
   const [loading, setLoading] = useState(false);
   const [letter, setLetter] = useState("");
   const [meta, setMeta] = useState(null); // { provider, model, status, note, copied }
-  const [editing, setEditing] = useState(true); // 👈 NEW: edit/preview toggle
+  const [editing, setEditing] = useState(true); 
 
   // sync role if parent changes it
   useEffect(() => { setRole(initialRole || ""); }, [initialRole]);
@@ -66,7 +66,7 @@ export default function AICoverLetter({ initialRole = "" }) {
         model: data.model || "gemini-2.5-pro",
         status: 200,
       });
-      setEditing(true); // open in editor so user can tweak immediately
+      setEditing(true); 
     } catch (e) {
       const status = e.response?.status;
       const msg = e.response?.data?.message || e.message || "Generation failed.";
@@ -110,7 +110,7 @@ export default function AICoverLetter({ initialRole = "" }) {
     URL.revokeObjectURL(url);
   }
 
-  // 👇 NEW: Download as PDF (client-side)
+  // Download as PDF (client-side)
   function downloadPDF() {
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const margin = 48;
